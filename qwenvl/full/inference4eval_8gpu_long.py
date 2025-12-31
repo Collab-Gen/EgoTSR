@@ -27,7 +27,7 @@ def load_model_on_gpu(gpu_id: int, model_name: str):
     print(f"🔄 GPU {gpu_id}: 正在加载模型...")
     
     # 使用原始QwenVL模型路径加载processor（无词表扩展，直接使用原始processor）
-    checkpoint_path = "/apdcephfs_gy2/share_302507476/xiaodayang/SpatialLogic/ckpt/qwenvl/full/tag_only/checkpoint-3000"
+    checkpoint_path = "/apdcephfs_nj8/share_301739632/xiaodayang/data/SpatialLogic/LOVE-Agibot-Beta/ckpt_long/checkpoint-18000"
     original_model_path = "/apdcephfs_gy2/share_302507476/xiaodayang/SpatialLogic/ckpt/qwenvl/original/Qwen2.5-VL-7B-Instruct"
     
     processor = AutoProcessor.from_pretrained(original_model_path, use_fast=False)
@@ -116,7 +116,7 @@ def infer_on_gpu(processor, model, messages: list, max_new_tokens: int, num_beam
         answer = generated_text.split("assistant")[-1].strip()
         return answer
 
-def worker_process(gpu_id: int, task_queue: mp.Queue, result_queue: mp.Queue, model_name: str, max_new_tokens: int, num_beams: int, base_dir: str):
+def worker_process(gpu_id: int, task_queue: mp.Queue, result_queue: mp.Queue, model_name: str, max_new_tokens: int, num_beams: int):
     """工作进程函数"""
     try:
         # 在指定GPU上加载模型
@@ -141,18 +141,16 @@ def worker_process(gpu_id: int, task_queue: mp.Queue, result_queue: mp.Queue, mo
                     print(f"⚠️ GPU {gpu_id} 行{row_idx}: 发现None值 - video_path1: {video_path1_raw}, video_path2: {video_path2_raw}, task_name: {task_name}")
                     continue
                 
-                video_path1 = video_path1_raw.strip().replace('_/','./')
-                video_path2 = video_path2_raw.strip().replace('_/','./')
+                # 不需要base_dir，csv里已经是绝对路径
+                video_path1 = video_path1_raw.strip()
+                video_path2 = video_path2_raw.strip()
                 task_name = task_name.strip()
-                
-                # 拼接完整路径
-                video_path1 = os.path.join(base_dir, video_path1)
-                video_path2 = os.path.join(base_dir, video_path2)
                 
                 # 构建prompt（简化为只输出最终答案，不需要spatial details）
                 prompt = (
-                    f"你是一位空间感知专家。\n请仔细观察两张图片(img1和img2)。 提示: 这两张图片发生在同一个任务中，描述了不同的任务完成状态。\n任务名称: {task_name}\n请你直接给出最终答案。\n输出格式:\ncloser to completion: [img1/img2]"
+                    f"You are a spatial awareness expert.\nYour task is to observe and describe two pictures (img1 and img2) respectively. Hint: These two pictures occur in the same task.\nTask name:{task_name} \nOutput format: closer to completion: \"Your judgment\"[img1/img2]"
                 )
+                
 
                 # 调试：检查路径和prompt是否有None值
                 print(f"🔍 GPU {gpu_id} 行{row_idx}: 检查数据")
@@ -270,9 +268,8 @@ def worker_process(gpu_id: int, task_queue: mp.Queue, result_queue: mp.Queue, mo
 def main():
     parser = argparse.ArgumentParser(description="Qwen2.5-VL 8卡并行推理")
     parser.add_argument("--model_name", type=str, default="Qwen/Qwen2.5-VL-7B-Instruct")
-    parser.add_argument("--gt_csv", type=str, default="/apdcephfs_gy2/share_302507476/xiaodayang/SpatialLogic/eval/gt.csv")
-    parser.add_argument("--pred_csv", type=str, default="/apdcephfs_gy2/share_302507476/xiaodayang/SpatialLogic/eval/pred_8gpu.csv")
-    parser.add_argument("--base_dir", type=str, default="/apdcephfs_gy2/share_302507476/xiaodayang/SpatialLogic/data/clips")
+    parser.add_argument("--gt_csv", type=str, default="/apdcephfs_nj8/share_301739632/xiaodayang/data/SpatialLogic/LOVE-Agibot-Beta/tag_json/pred_step/gt_short.csv")
+    parser.add_argument("--pred_csv", type=str, default="/apdcephfs_nj8/share_301739632/xiaodayang/data/SpatialLogic/LOVE-Agibot-Beta/tag_json/pred_step/pred_short_18k.csv")
     parser.add_argument("--max_new_tokens", type=int, default=500)
     parser.add_argument("--num_beams", type=int, default=1)
     parser.add_argument("--num_gpus", type=int, default=8, help="使用的GPU数量")
@@ -292,7 +289,7 @@ def main():
         raw_fieldnames = reader.fieldnames or []
         fieldnames = [name.strip().lstrip("\ufeff") for name in raw_fieldnames]
         reader.fieldnames = fieldnames
-        required_cols = {"video_path1", "video_path2", "task_name", "spatial_details", "target"}
+        required_cols = {"video_path1", "video_path2", "task_name", "target"}
         missing = required_cols - set(fieldnames)
         if missing:
             raise ValueError(f"gt.csv 缺少必要列: {missing}")
@@ -319,7 +316,7 @@ def main():
     for gpu_id in range(args.num_gpus):
         p = mp.Process(
             target=worker_process,
-            args=(gpu_id, task_queue, result_queue, args.model_name, args.max_new_tokens, args.num_beams, args.base_dir)
+            args=(gpu_id, task_queue, result_queue, args.model_name, args.max_new_tokens, args.num_beams)
         )
         p.start()
         processes.append(p)
@@ -361,7 +358,7 @@ def main():
     # 保存结果
     print("💾 正在保存结果...")
     with open(args.pred_csv, "w", newline="", encoding="utf-8") as f_out:
-        fieldnames = ["video_path1", "video_path2", "task_name", "spatial_details", "target"]
+        fieldnames = ["video_path1", "video_path2", "task_name", "target"]
         writer = csv.DictWriter(f_out, fieldnames=fieldnames)
         writer.writeheader()
         for item in results:
@@ -370,7 +367,6 @@ def main():
                     "video_path1": item["video_path1"],
                     "video_path2": item["video_path2"],
                     "task_name": item["task_name"],
-                    "spatial_details": item["spatial_details"],
                     "target": item["target"]
                 })
     

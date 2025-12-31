@@ -17,14 +17,14 @@ Train Qwen2.5-VL on CoT-style JSON data with lazy loading.
 # ==================== 默认配置区域 ====================
 # 这些是默认值，可以通过命令行参数覆盖
 DEFAULT_CONFIG = {
-    "base_dir": "/apdcephfs_gy2/share_302507476/xiaodayang/SpatialLogic/data/clips",  # 项目根目录
-    "model_path": "/apdcephfs_gy2/share_302507476/xiaodayang/SpatialLogic/ckpt/qwenvl/original/Qwen2.5-VL-7B-Instruct",  # 模型路径
+    "base_dir": "/apdcephfs_nj8/share_301739632/xiaodayang/data/SpatialLogic/LOVE-Agibot-Beta",  # 图片根目录
+    "model_path": "/apdcephfs_nj8/share_301739632/xiaodayang/data/SpatialLogic/LOVE-Agibot-Beta/checkpoint-60000",  # 模型路径
     "processor_path": "/apdcephfs_gy2/share_302507476/xiaodayang/SpatialLogic/ckpt/qwenvl/original/Qwen2.5-VL-7B-Instruct",  # 处理器路径（默认同基座模型）
-    "output_dir": "/apdcephfs_gy5/share_302507476/xiaodayang/SpatialLogic/ckpt/qwenvl/full/mix_tag_only",  # 输出目录
-    "log_dir": "/apdcephfs_gy2/share_302507476/xiaodayang/SpatialLogic/log/mix_tag_only",  # TensorBoard 日志目录
+    "output_dir": "/apdcephfs_nj8/share_301739632/xiaodayang/data/SpatialLogic/LOVE-Agibot-Beta/ckpt_long",  # 输出ckpt目录
+    "log_dir": "/apdcephfs_nj8/share_301739632/xiaodayang/code/SpatialLogic/full/log",  # TensorBoard 日志目录
     "tag_files": [],  # TAG数据文件列表，用户必须通过命令行参数指定
     "epochs": 2,                    # 训练轮数
-    "batch_size": 8,                # 批次大小（保持为1）
+    "batch_size": 4,                # 批次大小（保持为1）
     "learning_rate": 2e-7,          # 学习率（进一步降低到1e-7，避免梯度爆炸）
     "max_samples": 0,             # 最大样本数（0表示使用全部数据）
     "max_steps": 0,                 # 最大训练步数（设为0表示根据数据量自动计算）
@@ -34,7 +34,7 @@ DEFAULT_CONFIG = {
     "logging_steps": 10,            # 日志记录步数（减少控制台输出频率）
     "max_grad_norm": 0.3,           # 梯度裁剪阈值（降低到0.3，更保守的梯度控制）
     "weight_decay": 0.01,           # 权重衰减（全量微调使用更大的权重衰减）
-    "max_target_length": 1500,      # 目标文本最大长度（减少到2000进一步节省显存）
+    "max_target_length": 500,      # 目标文本最大长度（减少到2000进一步节省显存）
 }
 # ===================================================
 
@@ -161,8 +161,9 @@ class LazyTagDataset(Dataset):
                 
                 # 固定格式：第一个消息的前两个content是图片
                 content = messages[0]['content']
-                img1_path = content[0]['image'].replace('_/','./')
-                img2_path = content[1]['image'].replace('_/','./')
+                img1_path = content[0]['image']
+                img2_path = content[1]['image']
+                
                 
                 # 处理相对路径
                 if not os.path.isabs(img1_path):
@@ -171,6 +172,12 @@ class LazyTagDataset(Dataset):
                 if not os.path.isabs(img2_path):
                     img2_path = os.path.join(base_dir, img2_path)
                     content[1]['image'] = img2_path
+
+                # print("image_paths1", img1_path)
+                # print("image_paths2", img2_path)
+
+
+                # from IPython import embed; embed()
                 
                 image_paths = [img1_path, img2_path]
 
@@ -270,16 +277,42 @@ class LazyTagDataset(Dataset):
         input_ids = inputs.input_ids.squeeze(0)
         attention_mask = inputs.attention_mask.squeeze(0)
         
-        # 计算标签：前缀长度即模板产生的 chat_prompt 的 token 数
-        prefix_len = self.processor.tokenizer(chat_prompt, return_tensors='pt').input_ids.shape[-1]
+        # --- START: Bug Fix for Label Calculation ---
+        # The previous method of calculating prefix_len was unreliable for multimodal inputs.
+        # It caused parts of the prompt to be treated as labels, leading to OOM errors.
+        # The new method correctly identifies the target by tokenizing it separately.
+
+        # 1. Tokenize the target text separately to get its actual length in tokens.
+        #    `add_special_tokens=False` is crucial to avoid adding BOS/EOS tokens here.
+        target_ids = self.processor.tokenizer(target_text, add_special_tokens=False).input_ids
+        target_len = len(target_ids)
+
+        # 2. Create labels by masking everything EXCEPT the target tokens at the end of the sequence.
         labels = input_ids.clone()
-        labels[:prefix_len] = -100
+        if len(labels) > target_len:
+             labels[:-target_len] = -100
+        # --- END: Bug Fix ---
         
         # 确保有效标签
         valid_label_count = (labels != -100).sum().item()
         if valid_label_count == 0:
             labels[-3:] = input_ids[-3:]
         
+        # <<< START: Enhanced logging for debugging >>>
+        char_len = len(metadata['target_text'])
+        # Check for an abnormal token-to-character ratio, indicating a prefix calculation error
+        if char_len > 0 and valid_label_count / char_len > 10:
+            print("\n" + "="*50)
+            print(f"[!!!!] ANOMALY DETECTED at sample index: {idx}")
+            print(f"       Target Chars: {char_len}, but Target Tokens: {valid_label_count}")
+            print(f"       Ratio: {valid_label_count / char_len:.2f} tokens/char")
+            print(f"       Prompt Length (chars): {len(chat_prompt)}")
+            print(f"       Calculated Prefix Length (tokens): {target_len}")
+            print(f"       Total Sequence Length (tokens): {len(input_ids)}")
+            print(f"       Original Target Text: '{metadata['target_text']}'")
+            print("="*50 + "\n")
+        # <<< END: Enhanced logging for debugging >>>
+
         if hasattr(self.processor.tokenizer, 'pad_token_id') and self.processor.tokenizer.pad_token_id is not None:
             labels[labels == self.processor.tokenizer.pad_token_id] = -100
         
