@@ -1,8 +1,6 @@
 <div align="center">
 
-<h1>EgoTSR: From Perception to Planning</h1>
-
-<h3>Evolving Ego-Centric Task-Oriented Spatiotemporal Reasoning via Curriculum Learning</h3>
+<h1>From Perception to Planning: Evolving Ego-Centric Task-Oriented Spatiotemporal Reasoning via Curriculum Learning</h1>
 
 <p><strong>ICML 2026</strong></p>
 
