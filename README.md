@@ -5,12 +5,8 @@
 <p><strong>ICML 2026</strong></p>
 
 <p>
-  <a href="https://arxiv.org/abs/2604.10517">
-    <img src="https://img.shields.io/badge/Paper-arXiv%202604.10517-b31b1b.svg" alt="Paper">
-  </a>
-  <a href="https://mp.weixin.qq.com/s/UcP8uGbUPiWJhrkQw_ffew">
-    <img src="https://img.shields.io/badge/WeChat-%40%E6%9C%BA%E5%99%A8%E4%B9%8B%E5%BF%83-black%3Flogo%3Dwechat%26amp%3BlogoColor%3D07C160" alt="WeChat @机器之心">
-  </a>
+  <a href="https://arxiv.org/abs/2604.10517"><img src="https://img.shields.io/badge/Paper-arXiv%202604.10517-b31b1b.svg" alt="Paper"></a>
+  <a href="https://mp.weixin.qq.com/s/UcP8uGbUPiWJhrkQw_ffew"><img src="https://img.shields.io/badge/WeChat-%40%E6%9C%BA%E5%99%A8%E4%B9%8B%E5%BF%83-black%3Flogo%3Dwechat%26amp%3BlogoColor%3D07C160" alt="WeChat @机器之心"></a>
 </p>
 
 </div>
