@@ -9,7 +9,7 @@
     <img src="https://img.shields.io/badge/Paper-arXiv%202604.10517-b31b1b.svg" alt="Paper">
   </a>
   <a href="https://mp.weixin.qq.com/s/UcP8uGbUPiWJhrkQw_ffew">
-    <img src="https://img.shields.io/badge/Media%20Coverage-WeChat-07C160.svg" alt="Media Coverage">
+    <img src="https://img.shields.io/badge/WeChat-%40%E6%9C%BA%E5%99%A8%E4%B9%8B%E5%BF%83-07C160.svg?logo=wechat&logoColor=white" alt="WeChat @机器之心">
   </a>
 </p>
 
