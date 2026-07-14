@@ -9,17 +9,13 @@
     <img src="https://img.shields.io/badge/Paper-arXiv%202604.10517-b31b1b.svg" alt="Paper">
   </a>
   <a href="https://mp.weixin.qq.com/s/UcP8uGbUPiWJhrkQw_ffew">
-    <img src="https://img.shields.io/badge/Chinese%20Introduction-WeChat-07C160.svg" alt="Chinese Introduction">
+    <img src="https://img.shields.io/badge/Media%20Coverage-WeChat-07C160.svg" alt="Media Coverage">
   </a>
 </p>
 
 </div>
 
 EgoTSR is a curriculum-based framework for ego-centric task-oriented spatiotemporal reasoning. It aims to help vision-language models move from explicit spatial understanding to internalized task-state judgment and finally to long-horizon planning, reducing chronological bias and spatiotemporal hallucinations in embodied tasks.
-
-## News
-
-- **Chinese project introduction:** [ICML 2026｜两张图换个顺序，VLM就「不会了」：EgoTSR让机器人判断任务是否真的在推进](https://mp.weixin.qq.com/s/UcP8uGbUPiWJhrkQw_ffew)
 
 ## Highlights
 
